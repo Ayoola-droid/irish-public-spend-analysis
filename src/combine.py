@@ -2,32 +2,54 @@ from pathlib import Path
 import pandas as pd
 
 RAW = Path("data/raw")
-frames = []
 
-print("Every sheet in every file:")
-for f in sorted(RAW.glob("*.xlsx")):
-    sheets = pd.read_excel(f, sheet_name=None)
-    for name, sheet in sheets.items():
-        print(f"  {f.name:14} {name!r:14} {len(sheet):4} rows")
 
-    df = sheets["Sheet1"].copy()
+def load_quarter(path):
+    df = pd.read_excel(path, sheet_name="Sheet1")
     df.columns = df.columns.str.strip().str.lower()
-    df["quarter"] = f.stem.replace("_", "-")
-    df["source_file"] = f.name
-    frames.append(df)
+    df = df[["supplier", "euro", "description"]].copy()
+    df["description_raw"] = df["description"]    
+    df["description"] = (df["description"]
+                         .str.strip()
+                         .str.replace(r"\s+", " ", regex=True))
 
-spend = pd.concat(frames, ignore_index=True)
-spend["amount"] = pd.to_numeric(spend["euro"], errors="coerce")
+    is_total = df["supplier"].astype(str).str.strip().str.lower() == "total"
+    stated_total = df.loc[is_total, "euro"].sum()
 
-print("\nColumns:", spend.columns.tolist())
-print(f"Total rows: {len(spend)}")
+    orders = df[~is_total].copy()
+    orders["quarter"] = path.stem.replace("_", "-")
+    orders["source_file"] = path.name
+    return orders, stated_total, is_total.sum()
 
-print("\nRows and total spend per quarter:")
-print(spend.groupby("quarter").agg(rows=("amount", "size"), total=("amount", "sum")))
 
-print("\nMissing values per column:")
-print(spend.isna().sum())
+def load_all():
+    frames, checks = [], []
+    for f in sorted(RAW.glob("*.xlsx")):
+        orders, stated, n_total_rows = load_quarter(f)
+        calculated = orders["euro"].sum()
+        checks.append({
+            "quarter": f.stem.replace("_", "-"),
+            "orders": len(orders),
+            "total_rows": n_total_rows,
+            "calculated": round(calculated, 2),
+            "stated_total": round(stated, 2),
+            "difference": round(calculated - stated, 2),
+        })
+        frames.append(orders)
+    recon = pd.DataFrame(checks)
+    recon["reconciles"] = recon["difference"].abs() < 0.01
+    spend = pd.concat(frames, ignore_index=True)
 
-bad = spend[spend["amount"].isna()]
-print(f"\nRows where EURO is not a number: {len(bad)}")
-print(bad.to_string())
+    lower = spend["description"].str.lower()
+    most_common = spend.groupby(lower)["description"].agg(lambda s: s.mode().iloc[0])
+    spend["description"] = lower.map(most_common)
+
+    return spend, recon
+
+
+if __name__ == "__main__":
+    spend, recon = load_all()
+    print("Reconciliation against each file's TOTAL row:")
+    print(recon.to_string(index=False))
+    print(f"\nOrders: {len(spend)}   Total spend: €{spend['euro'].sum():,.2f}")
+    print(f"Quarters that reconcile: {recon['reconciles'].sum()} of {len(recon)}")
