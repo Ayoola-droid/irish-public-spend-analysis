@@ -20,7 +20,7 @@ def style_sheet(ws):
             width += 6
             for c in col[1:]:
                 c.number_format = EURO
-        ws.column_dimensions[col[0].column_letter].width = min(width + 2, 60)
+        ws.column_dimensions[col[0].column_letter].width = min(width + 5, 60)
 
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
@@ -57,6 +57,5 @@ def format_workbook(path):
     add_bar_chart(wb["By Quarter"], "Spend by quarter (EUR)", 3, "E2")
     add_bar_chart(wb["Top Suppliers"], "Top 10 suppliers by spend (EUR)", 3, "H2",
                   rows=10, horizontal=True)
-    add_bar_chart(wb["By Category"], "Top 10 categories by spend (EUR)", 3, "G2",
-                  rows=10, horizontal=True)
+    add_bar_chart(wb["By Category"], "Spend by category (EUR)", 3, "F2", horizontal=True)
     wb.save(path)
