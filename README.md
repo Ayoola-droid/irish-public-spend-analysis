@@ -4,24 +4,40 @@
 
 **Data:** Wicklow County Council purchase orders over €20,000, Q1 2024 to Q2 2026 (10 quarterly .xlsx files), from [wicklow.ie](https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000).
 
-**Tools:** Python (pandas, openpyxl), Excel
+**Tools:** Python 3.12 (pandas, openpyxl), Excel, Windows Task Scheduler
 
-**Status:** In progress. The pipeline runs end to end, handles new quarters automatically and is scheduled to run monthly. Still to do: the final write-up.
+**Status:** Complete. The pipeline reconciles, cleans and categorises the data, builds a formatted Excel report, and runs monthly on a schedule.
 
-## Key findings so far
+![Spend by category, from the generated Excel report](docs/categories.png)
 
-- **€149.7m across 1,686 orders**, Q1 2024 to Q2 2026, from 276 suppliers.
-- **The data is complete.** All 10 quarters reconcile to the council's own published totals to the cent.
-- **Spend is concentrated.** 10 of 276 suppliers received half of all spend. The largest, ABM Contractors, received €21.6m (14.4%), all for housing construction.
-- **Housing and roads take almost two thirds of spend.** Housing is the largest category at €58.2m (38.9%), mostly new housing construction (€45.8m). Roads & Transport follows at €35.9m (24.0%). ICT, Fire & Emergency and Corporate Services together account for under 4%.
-- **Q4 is the busiest quarter.** Q4 spend was €22.9m in 2024 and €23.9m in 2025, roughly three times Q1 (€8.0m and €7.9m), consistent with year-end spending.
+## Key findings (Q1 2024 – Q2 2026)
+
+1. **€149.7m across 1,686 orders, fully reconciled.** Every quarter matches the council's published totals to the cent.
+2. **Housing and roads take almost two thirds of spend:** Housing €58.2m (38.9%), Roads & Transport €35.9m (24.0%). ICT, Fire & Emergency and Corporate Services together account for under 4%.
+3. **Spend is concentrated:** 10 of 276 suppliers received half of all spend. The largest, ABM Contractors, received €21.6m (14.4%) for housing construction.
+4. **Year-end spending:** Q4 is roughly three times Q1 in both full years (€22.9m vs €8.0m in 2024; €23.9m vs €7.9m in 2025).
+5. **Data-quality issues found and handled:** a possible €321k double entry flagged for review, 76 groups of repeated orders (mostly recurring contracts), and a published tab containing personal data, which was excluded and removed.
+
+### Further detail
+
 - **Latest quarter (2026-Q2): €17.4m, 2.5% below 2025-Q2 (€17.8m), but the mix shifted.** Housing rose €3.7m, while Water & Infrastructure (−€1.8m), Roads & Transport (−€1.4m) and Engineering & Consultancy (−€1.3m) fell. 21 suppliers appeared for the first time. 2026-Q1 was 51% above 2025-Q1 (€11.9m vs €7.9m).
-- **Most repeated orders are recurring contracts, not errors.** 76 groups of identical orders were flagged (extra copies worth €4.67m). Most follow contract patterns: monthly homeless support payments and quarterly parking and engineering fees. One engineering order of €24,215.63 appears in all 10 quarters.
-- **One possible double entry stands out:** €320,854.73 to PFH Technology Group for ICT infrastructure, entered twice in 2024 Q2. It only became visible after supplier names and descriptions were cleaned.
+- **Housing construction** alone is €45.8m, the largest single description.
+- **Most repeated orders are recurring contracts, not errors.** The extra copies in the 76 flagged groups are worth €4.67m. Most follow contract patterns: monthly homeless support payments and quarterly parking and engineering fees. One engineering order of €24,215.63 appears in all 10 quarters.
+- **The possible double entry:** €320,854.73 to PFH Technology Group for ICT infrastructure, entered twice in 2024 Q2. It only became visible after supplier names and descriptions were cleaned.
+
+## Skills demonstrated
+
+- **Python and pandas:** combining files, groupby and pivot tables, text cleaning with regular expressions, fuzzy matching
+- **Data quality:** reconciliation to source totals, duplicate flagging, rule-based standardisation, a documented data-quality log
+- **Excel reporting:** a formatted multi-tab workbook with charts, built with openpyxl
+- **Automation:** input validation, exit codes, logging and a scheduled monthly run
+- **Judgement and governance:** reviewed supplier matches, category rules kept in editable files, personal data identified and removed
 
 ## The report
 
 `py src\report.py` writes `output/wicklow_spend_report_<latest quarter>.xlsx`, a formatted workbook with charts:
+
+![Summary tab of the generated report](docs/summary.png)
 
 | Tab | Contents |
 |---|---|
@@ -122,7 +138,7 @@ Most fixes are cosmetic: invisible trailing spaces from hand-typed spreadsheets,
 
 ## Setup
 
-Requires Windows with [Python 3](https://www.python.org/downloads/) and [Git](https://git-scm.com/downloads) installed.
+Requires Windows with [Python 3.12](https://www.python.org/downloads/) and [Git](https://git-scm.com/downloads) installed. Library versions are pinned in `requirements.txt` (pandas 3.1.0, openpyxl 3.1.5).
 
 ```powershell
 git clone https://github.com/Ayoola-droid/irish-public-spend-analysis.git
@@ -162,4 +178,5 @@ Run the scripts from the project folder:
 - `src/checks.py`: input-file checks and post-run warnings
 - `src/report.py`, `src/excel_format.py`: build and format the Excel report
 - `run_report.bat`: runner for the scheduled monthly task
+- `docs/`: README images
 - `output/`, `logs/`: generated reports and run logs (not committed)

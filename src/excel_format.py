@@ -33,7 +33,9 @@ def add_bar_chart(ws, title, value_col, anchor, rows=None, horizontal=False):
     chart = BarChart()
     chart.type = "bar" if horizontal else "col"
     chart.title = title
+    chart.title.overlay = False
     chart.legend = None
+    chart.varyColors = False
     chart.height, chart.width = (12, 20) if horizontal else (9, 18)
     chart.x_axis.delete = False
     chart.y_axis.delete = False
@@ -43,7 +45,12 @@ def add_bar_chart(ws, title, value_col, anchor, rows=None, horizontal=False):
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(labels)
     if horizontal:
+        chart.x_axis.axPos = "l"
+        chart.y_axis.axPos = "b"
         chart.x_axis.scaling.orientation = "maxMin"
+        chart.y_axis.crosses = "max"
+    else:
+        chart.x_axis.axPos = "b"
     ws.add_chart(chart, anchor)
 
 
