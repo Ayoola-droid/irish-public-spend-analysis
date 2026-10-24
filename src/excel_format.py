@@ -5,7 +5,9 @@ from openpyxl.styles import Font, PatternFill
 HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
 EURO = '€#,##0.00'
-EURO_COLUMNS = {"euro", "spend", "calculated", "stated_total", "difference", "extra_value"}
+EURO_COLUMNS = {"euro", "spend", "calculated", "stated_total", "difference", "extra_value",
+                "same_quarter_last_year", "previous_quarter", "latest_quarter",
+                "change_vs_last_year"}
 
 
 def style_sheet(ws):
@@ -51,7 +53,9 @@ def format_workbook(path):
         style_sheet(ws)
 
     ws = wb["Summary"]
-    ws["B4"].number_format = EURO
+    for measure, value in ws.iter_rows(min_row=2):
+        if "(EUR)" in str(measure.value):
+            value.number_format = EURO
     ws.auto_filter.ref = None
 
     add_bar_chart(wb["By Quarter"], "Spend by quarter (EUR)", 3, "E2")

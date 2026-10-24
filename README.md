@@ -6,7 +6,7 @@
 
 **Tools:** Python (pandas, openpyxl), Excel
 
-**Status:** In progress. The pipeline runs end to end, from the raw files to a formatted Excel report. Still to do: a monthly run for new quarters, and the final write-up.
+**Status:** In progress. The pipeline runs end to end and handles new quarters automatically. Still to do: a scheduled monthly run, and the final write-up.
 
 ## Key findings so far
 
@@ -15,6 +15,7 @@
 - **Spend is concentrated.** 10 of 276 suppliers received half of all spend. The largest, ABM Contractors, received €21.6m (14.4%), all for housing construction.
 - **Housing and roads take almost two thirds of spend.** Housing is the largest category at €58.2m (38.9%), mostly new housing construction (€45.8m). Roads & Transport follows at €35.9m (24.0%). ICT, Fire & Emergency and Corporate Services together account for under 4%.
 - **Q4 is the busiest quarter.** Q4 spend was €22.9m in 2024 and €23.9m in 2025, roughly three times Q1 (€8.0m and €7.9m), consistent with year-end spending.
+- **Latest quarter (2026-Q2): €17.4m, 2.5% below 2025-Q2 (€17.8m), but the mix shifted.** Housing rose €3.7m, while Water & Infrastructure (−€1.8m), Roads & Transport (−€1.4m) and Engineering & Consultancy (−€1.3m) fell. 21 suppliers appeared for the first time. 2026-Q1 was 51% above 2025-Q1 (€11.9m vs €7.9m).
 - **Most repeated orders are recurring contracts, not errors.** 76 groups of identical orders were flagged (extra copies worth €4.67m). Most follow contract patterns: monthly homeless support payments and quarterly parking and engineering fees. One engineering order of €24,215.63 appears in all 10 quarters.
 - **One possible double entry stands out:** €320,854.73 to PFH Technology Group for ICT infrastructure, entered twice in 2024 Q2. It only became visible after supplier names and descriptions were cleaned.
 
@@ -24,7 +25,9 @@
 
 | Tab | Contents |
 |---|---|
-| Summary | Headline measures: period, orders, spend, suppliers, reconciliation status |
+| Summary | Headline measures: period, orders, spend, suppliers, reconciliation status, latest quarter vs the same quarter last year |
+| Latest Quarter | Spend by category: latest quarter vs the previous quarter and the same quarter last year |
+| New Suppliers | Suppliers that appear for the first time in the latest quarter |
 | By Quarter | Orders and spend per quarter, with a chart |
 | Top Suppliers | Top 20 suppliers with share and cumulative share of spend, with a chart |
 | By Category | Spend across 12 categories, with a chart |
@@ -43,6 +46,28 @@
 5. **Categorise:** each description is matched against keyword rules in `data/category_rules.csv`, top to bottom, and the first match sets one of 12 categories (e.g. any description containing "footpath" → Roads & Transport). Rule order settles overlaps: "fire" comes before "vehicle", so fire engines count as Fire & Emergency. Descriptions that match no rule are labelled Uncategorised and counted in the data-quality log.
 6. **Flag duplicates:** there is no PO number or date, so identical rows (same quarter, supplier, amount and description) cannot be proven to be errors. They are flagged for review and kept in the totals.
 7. **Report:** pandas writes the tables; openpyxl adds formatting and charts.
+
+## Running it for a new quarter
+
+Wicklow publishes each quarter about six weeks after it ends. To update the report:
+
+1. Download the quarter's .xlsx file into `data/raw/`, named `YYYY_QN.xlsx` (e.g. `2026_Q3.xlsx`).
+2. Run `py src\report.py`.
+
+The script finds the newest quarter itself, writes a new file (`wicklow_spend_report_2026-Q3.xlsx`) without overwriting earlier reports, and compares the new quarter with the previous one and the same quarter a year earlier. No code changes are needed.
+
+Built-in checks (`src/checks.py`):
+
+| Check | When | If it fails |
+|---|---|---|
+| File named like `2026_Q3.xlsx` | Before loading | Stops: no report is written |
+| No Excel lock file (`~$...`) in the folder | Before loading | Stops |
+| Each file has a Sheet1 with Supplier, EURO and Description columns | Before loading | Stops |
+| Every quarter reconciles to its TOTAL row | After the report is built | Warning |
+| Exactly one TOTAL row per file | After the report is built | Warning |
+| Every description matches a category rule | After the report is built | Warning, listing the new descriptions |
+
+Blocking problems exit with code 1, so a scheduler can tell a failed run from a successful one. Tested by adding a wrongly named file (run stopped with a clear message) and by temporarily removing 2026_Q2 (a complete 2026-Q1 report was produced).
 
 ## Data quality log
 
@@ -63,6 +88,7 @@ Most fixes are cosmetic: invisible trailing spaces from hand-typed spreadsheets,
 - There is no order date or PO number, so the quarter comes from the filename and duplicates can only be flagged, not confirmed.
 - The 2024 Q3 file, as published, has a second tab ("HM old FW") of internal invoice notes: negative amounts against a retired housing maintenance framework, plus staff names and tenants' home addresses. It is not part of the purchase order list, so it is excluded from the analysis. For privacy, it has been removed from the copy in this repo, and that file's TOTAL formula was saved as its value.
 - The 2026 Q1 file has stray blank columns beyond column C; only Supplier, EURO and Description are used.
+- Supplier names are kept at legal-entity level. Two new suppliers in 2026-Q2, Tetra Tech Consulting Ltd and Tetra Tech Ireland Ltd, may belong to the same group (Tetra Tech also acquired RPS, an existing supplier), but they are kept separate until checked against the Companies Registration Office. Grouping by parent company would need a separate mapping.
 - The 173 distinct descriptions include different words for the same work (e.g. "Energy Retrofit" and "Energy Retrofit Works") and typos ("Footpath Maintenannce"); the category rules group these together.
 
 ## Setup
@@ -87,7 +113,7 @@ Run the scripts from the project folder:
 
 | Script | What it does |
 |---|---|
-| `py src\report.py` | **Main script:** builds the formatted Excel report in `output/` |
+| `py src\report.py` | **Main script:** checks the input files, then builds the formatted Excel report in `output/` |
 | `py src\combine.py` | Loads all quarters and prints the reconciliation against each file's TOTAL row |
 | `py src\suppliers.py` | Prints supplier counts, the top 10 suppliers and spend concentration |
 | `py src\categories.py` | Prints spend by category and lists the descriptions in each category for review |
@@ -103,5 +129,6 @@ Run the scripts from the project folder:
 - `src/suppliers.py`: supplier-name standardisation (`add_supplier_clean()`)
 - `src/categories.py`: spend categories (`add_category()`)
 - `src/quality.py`: duplicate and consistency checks
+- `src/checks.py`: input-file checks and post-run warnings
 - `src/report.py`, `src/excel_format.py`: build and format the Excel report
 - `output/`: generated reports (not committed)
