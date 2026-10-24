@@ -6,7 +6,7 @@
 
 **Tools:** Python (pandas, openpyxl), Excel
 
-**Status:** In progress. The pipeline runs end to end and handles new quarters automatically. Still to do: a scheduled monthly run, and the final write-up.
+**Status:** In progress. The pipeline runs end to end, handles new quarters automatically and is scheduled to run monthly. Still to do: the final write-up.
 
 ## Key findings so far
 
@@ -69,6 +69,35 @@ Built-in checks (`src/checks.py`):
 
 Blocking problems exit with code 1, so a scheduler can tell a failed run from a successful one. Tested by adding a wrongly named file (run stopped with a clear message) and by temporarily removing 2026_Q2 (a complete 2026-Q1 report was produced).
 
+## Scheduled monthly run
+
+`run_report.bat` runs the report without opening a terminal or activating the virtual environment, and appends everything it prints to `logs/run_log.txt` (not committed):
+
+```
+==== Run started 24/10/2026 20:44:16.24 in C:\Projects\irish-public-spend-analysis ====
+Report written: output\wicklow_spend_report_2026-Q2.xlsx
+...
+All checks passed.
+Exit code: 0
+```
+
+It changes to its own folder first (`cd /d "%~dp0"`), because Task Scheduler starts programs in `C:\Windows\System32`, and it exits with Python's own exit code, so the scheduler's "Last Result" shows whether the report actually succeeded.
+
+To schedule it for 09:00 on the 1st of every month (Windows):
+
+```powershell
+schtasks /Create /TN "Wicklow Spend Report" /TR "C:\Projects\irish-public-spend-analysis\run_report.bat" /SC MONTHLY /D 1 /ST 09:00
+```
+
+Then, in Task Scheduler, open the task and:
+
+- **Conditions** tab: untick *Start the task only if the computer is on AC power*. By default Windows queues the task on a laptop running on battery, so it silently never runs.
+- **Settings** tab: tick *Run task as soon as possible after a scheduled start is missed*, so a month is not skipped if the computer was off.
+
+Downloading each new quarter from wicklow.ie stays manual: the council's file links change every quarter, so automating the download would be fragile.
+
+**Lesson learned:** the first scheduled test reported success (`Last Result: 0`) but produced nothing. Two causes: the task was queued because the laptop was on battery, and the batch file's last command was an `echo`, which always returns 0. Checking the log and the report's timestamp, rather than trusting the status, exposed both. The batch file now passes Python's exit code back to the scheduler.
+
 ## Data quality log
 
 | Action | Issue | Rows |
@@ -114,6 +143,7 @@ Run the scripts from the project folder:
 | Script | What it does |
 |---|---|
 | `py src\report.py` | **Main script:** checks the input files, then builds the formatted Excel report in `output/` |
+| `.\run_report.bat` | Runs `report.py` with the project's virtual environment and logs the output to `logs/run_log.txt` (used by the scheduled task) |
 | `py src\combine.py` | Loads all quarters and prints the reconciliation against each file's TOTAL row |
 | `py src\suppliers.py` | Prints supplier counts, the top 10 suppliers and spend concentration |
 | `py src\categories.py` | Prints spend by category and lists the descriptions in each category for review |
@@ -131,4 +161,5 @@ Run the scripts from the project folder:
 - `src/quality.py`: duplicate and consistency checks
 - `src/checks.py`: input-file checks and post-run warnings
 - `src/report.py`, `src/excel_format.py`: build and format the Excel report
-- `output/`: generated reports (not committed)
+- `run_report.bat`: runner for the scheduled monthly task
+- `output/`, `logs/`: generated reports and run logs (not committed)
